@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church Timer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            background-color: #222;
+            color: white;
+        }
+        #timer-display {
+            font-size: 6rem;
+            font-weight: bold;
+        }
+        .timer-container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .hidden {
+            display: none;
+        }
+        .timer-card {
+            background: #333;
+            padding: 20px;
+            margin: 10px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .timer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5 timer-container" id="setup-view">
+    <h1 class="mb-4">Church Speaker Timer</h1>
+    <input type="text" id="timer-title" class="form-control mb-3" placeholder="Enter timer title (e.g., Intercessory Praying)">
+    <input type="number" id="hours" class="form-control mb-2" placeholder="Hours" min="0">
+    <input type="number" id="minutes" class="form-control mb-2" placeholder="Minutes" min="0">
+    <input type="number" id="seconds" class="form-control mb-3" placeholder="Seconds" min="0">
+    <button class="btn btn-primary me-2" id="save-timer">Save Timer</button>
+    <div class="alert alert-success hidden mt-3" id="success-message">Timer saved successfully!</div>
+    <div id="saved-timers" class="mt-4 timer-grid"></div>
+</div>
+
+<div class="container mt-5 timer-container hidden" id="timer-view">
+    <h1 id="timer-title-display"></h1>
+    <div id="timer-display">00:00:00</div>
+    <button class="btn btn-success me-2" id="start-btn">Start</button>
+    <button class="btn btn-warning me-2" id="pause-btn">Pause</button>
+    <button class="btn btn-danger" id="reset-btn">Reset</button>
+    <button class="btn btn-secondary mt-3" id="back-btn">Back to Setup</button>
+</div>
+
+<script>
+    let timer;
+    let timeRemaining;
+    let isRunning = false;
+    let activeTimer = null;
+
+    function formatTime(seconds) {
+        let hrs = Math.floor(Math.abs(seconds) / 3600);
+        let min = Math.floor((Math.abs(seconds) % 3600) / 60);
+        let sec = Math.abs(seconds) % 60;
+        let formatted = `${hrs.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        return seconds < 0 ? `-${formatted}` : formatted;
+    }
+
+    function saveTimer() {
+        let title = $('#timer-title').val();
+        let hours = parseInt($('#hours').val()) || 0;
+        let minutes = parseInt($('#minutes').val()) || 0;
+        let seconds = parseInt($('#seconds').val()) || 0;
+        let totalSeconds = hours * 3600 + minutes * 60 + seconds;
+        if (totalSeconds > 0) {
+            let timers = JSON.parse(localStorage.getItem('timers')) || [];
+            timers.push({ title, totalSeconds });
+            localStorage.setItem('timers', JSON.stringify(timers));
+            displayTimers();
+            $('#timer-title, #hours, #minutes, #seconds').val('');
+            $('#success-message').removeClass('hidden');
+            setTimeout(() => { $('#success-message').addClass('hidden'); }, 2000);
+        }
+    }
+
+    function deleteTimer(index) {
+        let timers = JSON.parse(localStorage.getItem('timers')) || [];
+        timers.splice(index, 1);
+        localStorage.setItem('timers', JSON.stringify(timers));
+        displayTimers();
+    }
+
+    function displayTimers() {
+        let timers = JSON.parse(localStorage.getItem('timers')) || [];
+        let timerList = timers.map((t, index) => `
+                <div class='timer-card'>
+                    <strong>${t.title}</strong>
+                    <p>${formatTime(t.totalSeconds)}</p>
+                    <button class='btn btn-info btn-sm' onclick='startTimer(${index})'>Start</button>
+                    <button class='btn btn-danger btn-sm' onclick='deleteTimer(${index})'>Delete</button>
+                </div>
+            `).join('');
+        $('#saved-timers').html(timerList);
+    }
+
+    function startTimer(index) {
+        let timers = JSON.parse(localStorage.getItem('timers')) || [];
+        activeTimer = timers[index];
+        timeRemaining = activeTimer.totalSeconds;
+        $('#timer-title-display').text(activeTimer.title);
+        $('#timer-display').text(formatTime(timeRemaining));
+        $('#setup-view').addClass('hidden');
+        $('#timer-view').removeClass('hidden');
+    }
+
+    $('#save-timer').click(saveTimer);
+    $(document).ready(displayTimers);
+
+    $('#start-btn').click(function () {
+        if (!isRunning) {
+            isRunning = true;
+            timer = setInterval(() => {
+                timeRemaining--;
+                $('#timer-display').text(formatTime(timeRemaining));
+                if (timeRemaining === 0) {
+                    new Audio('https://www.soundjay.com/button/beep-07.wav').play();
+                }
+            }, 1000);
+        }
+    });
+
+    $('#pause-btn').click(function () {
+        clearInterval(timer);
+        isRunning = false;
+    });
+
+    $('#reset-btn').click(function () {
+        clearInterval(timer);
+        isRunning = false;
+        timeRemaining = activeTimer.totalSeconds;
+        $('#timer-display').text(formatTime(timeRemaining));
+    });
+
+    $('#back-btn').click(function () {
+        clearInterval(timer);
+        isRunning = false;
+        $('#setup-view').removeClass('hidden');
+        $('#timer-view').addClass('hidden');
+    });
+</script>
+</body>
+</html>
