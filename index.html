@@ -25,16 +25,9 @@
         }
         .timer-card {
             background: #333;
-            padding: 20px;
+            padding: 10px;
             margin: 10px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .timer-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            justify-content: center;
+            border-radius: 5px;
         }
     </style>
 </head>
@@ -47,7 +40,7 @@
     <input type="number" id="seconds" class="form-control mb-3" placeholder="Seconds" min="0">
     <button class="btn btn-primary me-2" id="save-timer">Save Timer</button>
     <div class="alert alert-success hidden mt-3" id="success-message">Timer saved successfully!</div>
-    <div id="saved-timers" class="mt-4 timer-grid"></div>
+    <div id="saved-timers" class="row mt-4"></div>
 </div>
 
 <div class="container mt-5 timer-container hidden" id="timer-view">
@@ -100,11 +93,13 @@
     function displayTimers() {
         let timers = JSON.parse(localStorage.getItem('timers')) || [];
         let timerList = timers.map((t, index) => `
-                <div class='timer-card'>
-                    <strong>${t.title}</strong>
-                    <p>${formatTime(t.totalSeconds)}</p>
-                    <button class='btn btn-info btn-sm' onclick='startTimer(${index})'>Start</button>
-                    <button class='btn btn-danger btn-sm' onclick='deleteTimer(${index})'>Delete</button>
+                <div class='col-md-4'>
+                    <div class='timer-card'>
+                        <strong>${t.title}</strong>
+                        <p>${formatTime(t.totalSeconds)}</p>
+                        <button class='btn btn-info btn-sm' onclick='startTimer(${index})'>Start</button>
+                        <button class='btn btn-danger btn-sm' onclick='deleteTimer(${index})'>Delete</button>
+                    </div>
                 </div>
             `).join('');
         $('#saved-timers').html(timerList);
@@ -118,41 +113,56 @@
         $('#timer-display').text(formatTime(timeRemaining));
         $('#setup-view').addClass('hidden');
         $('#timer-view').removeClass('hidden');
+        localStorage.setItem('activeTimer', JSON.stringify({ title: activeTimer.title, timeRemaining }));
+        attachEventHandlers();
+    }
+
+    function attachEventHandlers() {
+        $('#start-btn').off().on('click', function() {
+            if (!isRunning) {
+                isRunning = true;
+                timer = setInterval(() => {
+                    timeRemaining--;
+                    $('#timer-display').text(formatTime(timeRemaining));
+                    localStorage.setItem('activeTimer', JSON.stringify({ title: activeTimer.title, timeRemaining }));
+                }, 1000);
+            }
+        });
+        $('#pause-btn').off().on('click', function() {
+            clearInterval(timer);
+            isRunning = false;
+        });
+        $('#reset-btn').off().on('click', function() {
+            clearInterval(timer);
+            isRunning = false;
+            timeRemaining = activeTimer.totalSeconds;
+            $('#timer-display').text(formatTime(timeRemaining));
+        });
+        $('#back-btn').off().on('click', function() {
+            clearInterval(timer);
+            isRunning = false;
+            $('#setup-view').removeClass('hidden');
+            $('#timer-view').addClass('hidden');
+        });
+    }
+
+    function restoreTimer() {
+        let storedTimer = JSON.parse(localStorage.getItem('activeTimer'));
+        if (storedTimer) {
+            activeTimer = storedTimer;
+            timeRemaining = storedTimer.timeRemaining;
+            $('#timer-title-display').text(activeTimer.title);
+            $('#timer-display').text(formatTime(timeRemaining));
+            $('#setup-view').addClass('hidden');
+            $('#timer-view').removeClass('hidden');
+            attachEventHandlers();
+        }
     }
 
     $('#save-timer').click(saveTimer);
-    $(document).ready(displayTimers);
-
-    $('#start-btn').click(function () {
-        if (!isRunning) {
-            isRunning = true;
-            timer = setInterval(() => {
-                timeRemaining--;
-                $('#timer-display').text(formatTime(timeRemaining));
-                if (timeRemaining === 0) {
-                    new Audio('https://www.soundjay.com/button/beep-07.wav').play();
-                }
-            }, 1000);
-        }
-    });
-
-    $('#pause-btn').click(function () {
-        clearInterval(timer);
-        isRunning = false;
-    });
-
-    $('#reset-btn').click(function () {
-        clearInterval(timer);
-        isRunning = false;
-        timeRemaining = activeTimer.totalSeconds;
-        $('#timer-display').text(formatTime(timeRemaining));
-    });
-
-    $('#back-btn').click(function () {
-        clearInterval(timer);
-        isRunning = false;
-        $('#setup-view').removeClass('hidden');
-        $('#timer-view').addClass('hidden');
+    $(document).ready(() => {
+        displayTimers();
+        restoreTimer();
     });
 </script>
 </body>
