@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timer System</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f8f9fa;
+        }
+        /* Navbar styling */
+        .nav-link.active {
+            background: #007bff;
+            color: white !important;
+            border-radius: 5px;
+        }
+        /* Timer card styling */
+        .timer-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        /* Fullscreen style for maximized timer */
+        .fullscreen {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            z-index: 1050;
+            padding: 30px;
+            overflow: auto;
+        }
+        /* Default circular timer style */
+        .timer-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #28a745;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.5s, box-shadow 0.5s, width 0.5s, height 0.5s, font-size 0.5s;
+        }
+        /* Enlarged timer circle for maximized view */
+        .timer-circle-max {
+            width: 200px !important;
+            height: 200px !important;
+            font-size: 2.5rem !important;
+        }
+        .timer-circle.expired {
+            background: red;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        }
+        /* Badge for started at (only visible when running) */
+        .started-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: none;
+        }
+        .running .started-badge {
+            display: inline-block;
+        }
+        /* Timer actions icons */
+        .timer-actions i {
+            cursor: pointer;
+            margin: 0 10px;
+            font-size: 1.25rem;
+        }
+        /* Fullscreen close icon */
+        .fullscreen-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+<!-- Main layout -->
+<div class="container-fluid">
+    <div class="row">
+        <!-- Left navbar -->
+        <div class="col-md-4 bg-dark text-white p-3">
+            <h4 class="text-center">Timer System</h4>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active">
+                        <i class="fas fa-clock"></i> Timer
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <!-- Timers display area -->
+        <div class="col-md-8 p-4">
+            <div class="row" id="timers-container">
+                <!-- Timer cards will be injected here -->
+            </div>
+            <!-- Button to open new timer modal -->
+            <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#newTimerModal">
+                <i class="fas fa-plus"></i> New Timer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- New Timer Modal -->
+<div class="modal fade" id="newTimerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Timer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="timerTitle" class="form-label">Timer Title</label>
+                    <input type="text" class="form-control" id="timerTitle" placeholder="Enter title" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Allocated Time (HH:MM:SS)</label>
+                    <div class="d-flex justify-content-between">
+                        <input type="text" class="form-control time-input" id="hours" placeholder="HH" maxlength="2" />
+                        <span class="align-self-center">:</span>
+                        <input type="text" class="form-control time-input" id="minutes" placeholder="MM" maxlength="2" />
+                        <span class="align-self-center">:</span>
+                        <input type="text" class="form-control time-input" id="seconds" placeholder="SS" maxlength="2" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveTimerBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Timer object structure:
+    // { id, title, allocated (sec), remaining (sec), isRunning, intervalID, startedAt }
+    let timers = JSON.parse(localStorage.getItem("timers")) || [];
+
+    function saveTimers() {
+        localStorage.setItem("timers", JSON.stringify(timers));
+    }
+
+    // Convert seconds to HH:MM:SS format (handles negative values)
+    function formatTime(totalSeconds) {
+        let sign = totalSeconds < 0 ? "-" : "";
+        totalSeconds = Math.abs(totalSeconds);
+        let hours = Math.floor(totalSeconds / 3600);
+        let minutes = Math.floor((totalSeconds % 3600) / 60);
+        let seconds = totalSeconds % 60;
+        return sign + String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+    }
+
+    // Render timers in the grid; if none, show a message.
+    function renderTimers() {
+        $("#timers-container").empty();
+        if (timers.length === 0) {
+            $("#timers-container").append('<div class="col-12 text-center text-muted">No timers available. Create one!</div>');
+        }
+        timers.forEach((timer) => {
+            let runningClass = timer.isRunning ? "running" : "";
+            let startedBadge = timer.isRunning && timer.startedAt ? `<span class="badge bg-success started-badge">Started at ${timer.startedAt}</span>` : "";
+            let card = `
+          <div class="col-md-6 mb-4">
+            <div class="timer-card position-relative ${runningClass}" id="timer-card-${timer.id}">
+              ${startedBadge}
+              <div class="d-flex justify-content-between align-items-center">
+                <span>Allocated: ${formatTime(timer.allocated)}</span>
+                <div>
+                  <i class="fas fa-external-link-alt text-primary mx-2 detach-btn" data-id="${timer.id}" title="Detach"></i>
+                  <i class="fas fa-window-maximize text-secondary mx-2 maximize-btn" data-id="${timer.id}" title="Maximize"></i>
+                  <i class="fas fa-trash text-danger mx-2 delete-btn" data-id="${timer.id}" title="Delete"></i>
+                </div>
+              </div>
+              <div class="timer-circle d-flex align-items-center justify-content-center my-3" id="circle-${timer.id}">
+                ${formatTime(timer.remaining)}
+              </div>
+              <div class="text-center timer-actions">
+                <i class="fas ${timer.isRunning ? "fa-pause" : "fa-play"} play-btn text-primary mx-2" data-id="${timer.id}" title="Play/Pause"></i>
+                <i class="fas fa-redo text-warning reset-btn mx-2" data-id="${timer.id}" title="Reset"></i>
+              </div>
+            </div>
+          </div>`;
+            $("#timers-container").append(card);
+        });
+    }
+
+    // Update a single timer (called every second when running)
+    function updateTimer(timer) {
+        timer.intervalID = setInterval(() => {
+            timer.remaining--;
+            $(`#circle-${timer.id}`).text(formatTime(timer.remaining));
+            if (timer.remaining < 0) {
+                $(`#circle-${timer.id}`).addClass("expired");
+            } else {
+                $(`#circle-${timer.id}`).removeClass("expired");
+            }
+            saveTimers();
+        }, 1000);
+    }
+
+    // Start timer
+    function startTimer(id) {
+        let timer = timers.find((t) => t.id === id);
+        if (!timer || timer.isRunning) return;
+        timer.isRunning = true;
+        timer.startedAt = new Date().toLocaleTimeString();
+        updateTimer(timer);
+        saveTimers();
+        renderTimers();
+    }
+
+    // Pause timer
+    function pauseTimer(id) {
+        let timer = timers.find((t) => t.id === id);
+        if (!timer) return;
+        timer.isRunning = false;
+        clearInterval(timer.intervalID);
+        timer.intervalID = null;
+        timer.startedAt = null;
+        saveTimers();
+        renderTimers();
+    }
+
+    // Reset timer
+    function resetTimer(id) {
+        let timer = timers.find((t) => t.id === id);
+        if (!timer) return;
+        pauseTimer(id);
+        timer.remaining = timer.allocated;
+        saveTimers();
+        renderTimers();
+    }
+
+    // Delete timer
+    function deleteTimer(id) {
+        timers = timers.filter((t) => t.id !== id);
+        saveTimers();
+        renderTimers();
+    }
+
+    // Detach timer (open in a new window covering full viewport with a square timer)
+    function detachTimer(id) {
+        let timer = timers.find((t) => t.id === id);
+        if (!timer) return;
+        let newWindow = window.open("", "_blank", `width=${screen.availWidth},height=${screen.availHeight}`);
+        newWindow.document.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${timer.title}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    body { margin: 0; padding: 20px; background: #f8f9fa; }
+    .timer-card { max-width: 800px; margin: auto; }
+    /* Detached timer style: square, bigger */
+    .timer-circle {
+      width: 300px;
+      height: 300px;
+      border-radius: 0;
+      font-size: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #28a745;
+      color: white;
+      font-weight: bold;
+      transition: background 0.5s, box-shadow 0.5s;
+    }
+    .timer-circle.expired {
+      background: red;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+    }
+    .timer-actions i { font-size: 2rem; margin: 0 15px; cursor: pointer; }
+    .started-badge { position: absolute; top: 10px; left: 10px; }
+  </style>
+</head>
+<body>
+  <div class="timer-card position-relative" id="detached-timer-card-${timer.id}">
+    <span class="badge bg-success started-badge" id="detached-started-${timer.id}" style="display: none;"></span>
+    <div class="d-flex justify-content-between align-items-center">
+      <span>Allocated: ${formatTime(timer.allocated)}</span>
+      <div>
+        <i class="fas fa-window-close text-danger detach-close" onclick="window.close()" title="Close"></i>
+        <i class="fas fa-trash text-danger mx-2 delete-btn-detached" data-id="${timer.id}" title="Delete"></i>
+      </div>
+    </div>
+    <div class="timer-circle my-3 text-center" id="detached-circle-${timer.id}">
+      ${formatTime(timer.remaining)}
+    </div>
+    <div class="text-center timer-actions">
+      <i class="fas ${timer.isRunning ? "fa-pause" : "fa-play"} play-btn-detached text-primary mx-2" data-id="${timer.id}" title="Play/Pause"></i>
+      <i class="fas fa-redo text-warning reset-btn-detached mx-2" data-id="${timer.id}" title="Reset"></i>
+    </div>
+  </div>
+  <script>
+    let timer = ${JSON.stringify(timer)};
+    function formatTime(totalSeconds) {
+      let sign = totalSeconds < 0 ? '-' : '';
+      totalSeconds = Math.abs(totalSeconds);
+      let hours = Math.floor(totalSeconds / 3600);
+      let minutes = Math.floor((totalSeconds % 3600) / 60);
+      let seconds = totalSeconds % 60;
+      return sign + String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    }
+    function updateDetachedTimer() {
+      timer.intervalID = setInterval(() => {
+        timer.remaining--;
+        document.getElementById('detached-circle-' + timer.id).innerText = formatTime(timer.remaining);
+        if (timer.remaining < 0) {
+          document.getElementById('detached-circle-' + timer.id).classList.add('expired');
+        } else {
+          document.getElementById('detached-circle-' + timer.id).classList.remove('expired');
+        }
+      }, 1000);
+    }
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('play-btn-detached')) {
+        if (timer.isRunning) {
+          timer.isRunning = false;
+          clearInterval(timer.intervalID);
+          document.getElementById('detached-started-' + timer.id).style.display = 'none';
+          e.target.classList.remove('fa-pause');
+          e.target.classList.add('fa-play');
+        } else {
+          timer.isRunning = true;
+          timer.startedAt = new Date().toLocaleTimeString();
+          let startedBadge = document.getElementById('detached-started-' + timer.id);
+          startedBadge.innerText = 'Started at ' + timer.startedAt;
+          startedBadge.style.display = 'block';
+          updateDetachedTimer();
+          e.target.classList.remove('fa-play');
+          e.target.classList.add('fa-pause');
+        }
+      }
+      if (e.target.classList.contains('reset-btn-detached')) {
+        timer.isRunning = false;
+        clearInterval(timer.intervalID);
+        timer.remaining = timer.allocated;
+        document.getElementById('detached-circle-' + timer.id).innerText = formatTime(timer.remaining);
+        document.getElementById('detached-started-' + timer.id).style.display = 'none';
+        let playBtn = document.querySelector('.play-btn-detached');
+        playBtn.classList.remove('fa-pause');
+        playBtn.classList.add('fa-play');
+      }
+      if (e.target.classList.contains('delete-btn-detached')) {
+        window.close();
+      }
+    });
+    if (timer.isRunning) {
+      let startedBadge = document.getElementById('detached-started-' + timer.id);
+      startedBadge.innerText = 'Started at ' + timer.startedAt;
+      startedBadge.style.display = 'block';
+      updateDetachedTimer();
+    }
+  <\/script>
+</body>
+</html>
+      `);
+    }
+
+    // Maximize timer (toggle fullscreen mode) and adjust circle size
+    function maximizeTimer(id) {
+        let card = $(`#timer-card-${id}`);
+        if (!card.hasClass("fullscreen")) {
+            card.addClass("fullscreen");
+            // Add bigger class to the timer circle
+            card.find(".timer-circle").addClass("timer-circle-max");
+            card.append('<i class="fas fa-times fullscreen-close" title="Close"></i>');
+        } else {
+            card.removeClass("fullscreen").removeAttr("style");
+            card.find(".fullscreen-close").remove();
+            card.find(".timer-circle").removeClass("timer-circle-max");
+        }
+    }
+
+    // Main window event handlers
+    $(document).on("click", ".play-btn", function () {
+        let id = $(this).data("id");
+        let timer = timers.find((t) => t.id === id);
+        if (timer.isRunning) {
+            pauseTimer(id);
+        } else {
+            startTimer(id);
+        }
+    });
+
+    $(document).on("click", ".reset-btn", function () {
+        let id = $(this).data("id");
+        resetTimer(id);
+    });
+
+    $(document).on("click", ".detach-btn", function () {
+        let id = $(this).data("id");
+        detachTimer(id);
+    });
+
+    $(document).on("click", ".maximize-btn", function () {
+        let id = $(this).data("id");
+        maximizeTimer(id);
+    });
+
+    $(document).on("click", ".delete-btn", function () {
+        let id = $(this).data("id");
+        deleteTimer(id);
+    });
+
+    $(document).on("click", ".fullscreen-close", function () {
+        let card = $(this).closest(".timer-card");
+        card.removeClass("fullscreen").removeAttr("style");
+        card.find(".fullscreen-close").remove();
+        card.find(".timer-circle").removeClass("timer-circle-max");
+    });
+
+    // Save new timer from modal
+    $("#saveTimerBtn").click(function () {
+        let title = $("#timerTitle").val() || "Timer";
+        let hh = parseInt($("#hours").val()) || 0;
+        let mm = parseInt($("#minutes").val()) || 0;
+        let ss = parseInt($("#seconds").val()) || 0;
+        let allocated = hh * 3600 + mm * 60 + ss;
+        if (allocated <= 0) {
+            allocated = 300; // Default to 5 minutes
+        }
+        let newTimer = {
+            id: Date.now(),
+            title: title,
+            allocated: allocated,
+            remaining: allocated,
+            isRunning: false,
+            intervalID: null,
+            startedAt: null,
+        };
+        timers.push(newTimer);
+        saveTimers();
+        renderTimers();
+        $("#newTimerModal").modal("hide");
+        $("#timerTitle, #hours, #minutes, #seconds").val("");
+    });
+
+    // Initial render on page load
+    $(document).ready(function () {
+        renderTimers();
+    });
+</script>
+</body>
+</html>
