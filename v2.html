@@ -186,8 +186,9 @@
           <div class="col-md-6 mb-4">
             <div class="timer-card position-relative ${runningClass}" id="timer-card-${timer.id}">
               ${startedBadge}
-              <div class="d-flex justify-content-between align-items-center">
-                <span>Allocated: ${formatTime(timer.allocated)}</span>
+              <div class="d-flex justify-content-between align-items-center mt-3">
+<!--                <span>Allocated: ${formatTime(timer.allocated)}</span>-->
+                <span class="fw-bolder">Title : ${timer.title}</span>
                 <div>
                   <i class="fas fa-external-link-alt text-primary mx-2 detach-btn" data-id="${timer.id}" title="Detach"></i>
                   <i class="fas fa-window-maximize text-secondary mx-2 maximize-btn" data-id="${timer.id}" title="Maximize"></i>
@@ -303,8 +304,9 @@
 <body>
   <div class="timer-card position-relative" id="detached-timer-card-${timer.id}">
     <br><span class="badge bg-success started-badge" id="detached-started-${timer.id}" style="display: none;"></span>
-    <div class="d-flex justify-content-between align-items-center">
-      <span>Allocated: ${formatTime(timer.allocated)}</span>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+<!--      <span>Allocated: ${formatTime(timer.allocated)}</span>-->
+          <span class="fw-bolder">Title : ${timer.title}</span>
       <div>
         <i class="fas fa-window-close text-danger detach-close" onclick="window.close()" title="Close"></i>
         <i class="fas fa-trash text-danger mx-2 delete-btn-detached" data-id="${timer.id}" title="Delete"></i>
